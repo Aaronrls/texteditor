@@ -11,7 +11,7 @@ public class TextEditor {
 	frame.pack();
 	frame.setVisible(true);
 	
-	//fake change
+
 	}
 
 }
