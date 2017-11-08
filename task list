@@ -1,6 +1,8 @@
 GUI text editor
 Database of words
-Add word to database
-undo word from database
 text field in GUI with autosuggestion popup
-method for autocompletion 
+method for autocompletion
+Add word to database
+remove word from database
+Undo last word typed
+
