@@ -32,7 +32,7 @@ public class Frame extends JFrame {
 	}
 
 	private void initComponents() {
-		fonts = new JComboBox(names);
+		
 		jScrollPane = new JScrollPane();
 		textArea = new JTextArea();
 		status = new JTextField();
@@ -101,7 +101,7 @@ public class Frame extends JFrame {
 			}
 });
 		names = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
-		 
+		 fonts = new JComboBox(names);
 		 fonts.setBackground(Color.WHITE);
 		 
 		 fonts.addItemListener(new ItemListener() {
