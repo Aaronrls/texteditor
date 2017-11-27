@@ -7,8 +7,15 @@ import java.util.logging.Logger;
 
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
+import javax.swing.text.BadLocationException;
+import javax.swing.undo.*;
+
+
 
 import java.awt.Font;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
@@ -19,7 +26,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.sql.SQLException;
 
-import javax.swing.text.BadLocationException;
+
 
 
 @SuppressWarnings("serial")
@@ -27,8 +34,11 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 	private Connex con;
 	private WordTable wt;
 	private LinkedList<String> wordss;
+	 private UndoManager undoManager = new UndoManager();
+	 private UndoAction undoAction = new UndoAction();
+	  private RedoAction redoAction = new RedoAction();
 	/////////////////////////
-	private JMenu editMenu;
+
 	private JMenu fileMenu;
 	private JScrollPane jScrollPane;
 	private JPopupMenu.Separator jSeparator1;
@@ -36,12 +46,13 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 	private JMenuItem newButton;
 	private JMenuItem openButton;
 	private JMenuItem quitButton;
-	private JMenuItem redoButton;
+	private JMenu editMenu;
 	private JMenuItem saveButton;
 	private JMenuItem wordCountButton;
 	private JTextField status;
 	private JTextArea textArea;
-	private JMenuItem undoButton;
+	
+	
 	////////////////////////////////////////////////////////////////
 	private static final String COMMIT_ACTION = "commit";
 
@@ -52,6 +63,7 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 	// lets program know if it should suggest words or move the carot after
 	// inserting a suggestion
 	private Mode mode = Mode.INSERT;
+	
 
 	public Main() throws FileNotFoundException, SQLException  {
 		super("Project");
@@ -69,7 +81,7 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		
 		///// our custom list
 		wordss = new LinkedList<String>();
-		wordss = WordTable.wordss;
+		//wordss = WordTable.wordss;
 
 	}
 
@@ -85,15 +97,25 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		con.close();
 		////
 
+		JMenuItem redoEdit = new JMenuItem("Redo");
+		JMenuItem undoEdit = new JMenuItem("Undo");
+		UndoManager editManager = new UndoManager();
 		textArea = new JTextArea();
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		textArea.setColumns(20);
 		textArea.setLineWrap(true);
 		textArea.setRows(5);
 		textArea.setWrapStyleWord(true);
-
+		textArea.getDocument().addUndoableEditListener(new UndoableEditListener() {
+			public void undoableEditHappened(UndoableEditEvent e) {
+				editManager.addEdit(e.getEdit());
+			}
+		});
+		
+		
 		jScrollPane = new JScrollPane();
 		textArea = new JTextArea();
+		textArea.getDocument().addUndoableEditListener(new UndoListener());
 		status = new JTextField();
 		menuBar = new JMenuBar();
 		fileMenu = new JMenu();
@@ -103,8 +125,7 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		jSeparator1 = new JPopupMenu.Separator();
 		quitButton = new JMenuItem();
 		editMenu = new JMenu();
-		undoButton = new JMenuItem();
-		redoButton = new JMenuItem();
+		
 		wordCountButton = new JMenuItem();
 
 		status.setEditable(false);
@@ -154,21 +175,19 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 
 		menuBar.add(fileMenu);
 		menuBar.add(editMenu);
-		editMenu.setText("Edit");
-
-		undoButton.setText("Undo");
-		undoButton.setToolTipText("");
-		editMenu.add(undoButton);
-
-		redoButton.setText("Redo");
-		editMenu.add(redoButton);
 		
+		
+	    editMenu.setText("Edit");
+		editMenu.add(undoAction);
+	    editMenu.add(redoAction);
 		wordCountButton.setText("Word Count");
 		menuBar.add(wordCountButton);
-
+	
 	
 
 		setJMenuBar(menuBar);
+		
+	
 
 		GroupLayout layout = new GroupLayout(getContentPane());
 		getContentPane().setLayout(layout);
@@ -189,7 +208,8 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 
 	}
 	// Listener methods
-
+	
+	
 	private void quitButtonActionPerformed(ActionEvent evt) {
 		// exit program
 		System.exit(0);
@@ -245,6 +265,7 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		
 	}
 	private static int countWords(String doc) {
+
 		int index =0;
 		boolean beginning = true;
 		if(doc.equals("")) {
@@ -272,6 +293,48 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		}
 		
 	}
+
+	class UndoListener implements UndoableEditListener {
+	    public void undoableEditHappened(UndoableEditEvent e) {
+	      undoManager.addEdit(e.getEdit());
+	      undoAction.update();
+	      redoAction.update();
+	    }
+	  }
+	  class UndoAction extends AbstractAction {
+	    public UndoAction() {
+	      this.putValue(Action.NAME, undoManager.getUndoPresentationName());
+	      this.setEnabled(false);
+	    }
+	    public void actionPerformed(ActionEvent e) {
+	      if (this.isEnabled()) {
+	        undoManager.undo();
+	        undoAction.update();
+	        redoAction.update();
+	      }
+	    }
+	    public void update() {
+	      this.putValue(Action.NAME, undoManager.getUndoPresentationName());
+	      this.setEnabled(undoManager.canUndo());
+	    }
+	  }
+	  class RedoAction extends AbstractAction {
+	    public RedoAction() {
+	      this.putValue(Action.NAME, undoManager.getRedoPresentationName());
+	      this.setEnabled(false);
+	    }
+	    public void actionPerformed(ActionEvent e) {
+	      if (this.isEnabled()) {
+	        undoManager.redo();
+	        undoAction.update();
+	        redoAction.update();
+	      }
+	    }
+	    public void update() {
+	      this.putValue(Action.NAME, undoManager.getRedoPresentationName());
+	      this.setEnabled(undoManager.canRedo());
+	    }
+	  }
 
 	public void changedUpdate(DocumentEvent ev) {
 	}
@@ -373,11 +436,7 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		
 	}
 
-	@Override
-	public void keyReleased(KeyEvent e) {
-		
-		lastWord(e);
-	}
+
 
 	@Override
 	public void keyTyped(KeyEvent e) {
@@ -385,32 +444,7 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 		
 	}
 	
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public void  lastWord(KeyEvent e){
-		int key = e.getKeyCode();
-		 if(key == KeyEvent.VK_SPACE){
-		String[] wordsArray = textArea.getText().split("\\s+");
-		String lastWord = wordsArray[wordsArray.length - 1];
-		System.out.println(lastWord);
-		//int n = Collections.binarySearch(wordss, lastWord);
-		
-		if(!wordss.contains(lastWord)){
-						
-			Font font = textArea.getFont();
-			
-			Map attributes = font.getAttributes();
-			attributes.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
-			textArea.setFont(font.deriveFont(attributes));
-			wordss.offer(lastWord);
-						
-			wordss.sort(null);
-			System.out.println("inserted");
-			System.out.println(wordss.toString());
-		}
-		
-		 }
-	}
-	
+
 	
 	
 //	private void checkLastWord() {
@@ -423,7 +457,6 @@ public class Main extends JFrame implements DocumentListener, KeyListener {
 //            e.printStackTrace();
 //        }
 //  }
-
 
 private class CompletionTask implements Runnable {
 
@@ -465,7 +498,9 @@ private class CommitAction extends AbstractAction {
 
 	}
 
+
 	public static void main(String args[]) {
+		
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
 
@@ -479,6 +514,12 @@ private class CommitAction extends AbstractAction {
 				}
 			}
 		});
+	}
+	
+	
+	public void keyReleased(KeyEvent e) {
+		
+		
 	}
 
 	
