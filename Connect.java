@@ -1,16 +1,13 @@
 package texteditor;
 
-
-
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class Connect {
-	
-	
+
 	private static Connection con = null;
+
 	public void start() {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
@@ -26,11 +23,12 @@ public class Connect {
 			ex.printStackTrace();
 		}
 	}
+
 	public Connection setCon() {
 
 		return con;
 	}
-	
+
 	public void close() {
 
 		try {

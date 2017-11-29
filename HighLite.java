@@ -6,8 +6,9 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.FileNotFoundException;
+import java.sql.SQLException;
 import java.util.LinkedList;
-
 import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
 import javax.swing.text.BadLocationException;
@@ -17,23 +18,27 @@ import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 
 public class HighLite implements KeyListener, MouseListener {
-	Highlighter.HighlightPainter myHighlightPainter;
-	Highlighter hilite;
-	Document doc;
-	JTextArea textArea;
+	private Highlighter.HighlightPainter myHighlightPainter;
+	private Highlighter hilite;
+	private Document doc;
+	private JTextArea textArea;
 	private String content;
 	private LinkedList<String> list;
-	LinkedList<String> wordss;
+	private LinkedList<String> wordss;
+	private WordList wl;
 
-	public HighLite(JTextArea textArea, LinkedList<String> wordss) {
+ 	public HighLite(JTextArea textArea, LinkedList<String> wordss) throws FileNotFoundException {
 		this.textArea = textArea;
 		this.wordss = wordss;
 		list = new LinkedList<String>();
+		 wl = new WordList();
+		
 		myHighlightPainter = new MyHighlightPainter(Color.pink);
-		hilite = textArea.getHighlighter();
-		doc = textArea.getDocument();
+		setHilite(textArea.getHighlighter());
+		setDoc(textArea.getDocument());
 		textArea.addKeyListener(this);
 		textArea.addMouseListener(this);
+		
 		// System.out.println(wordss.toString());
 
 	}
@@ -109,10 +114,11 @@ public class HighLite implements KeyListener, MouseListener {
 		}
 	}
 
-	public void addtext() {
+	public void addtext() throws SQLException {
 		for (int i = 0; i < list.size(); i++) {
 			wordss.add(list.get(i));
-
+			wl.insert(list.get(i));
+		
 		}
 
 	}
@@ -154,7 +160,12 @@ public class HighLite implements KeyListener, MouseListener {
 			int jo = JOptionPane.showConfirmDialog(null, "add", "add word to dictionary",
 					JOptionPane.YES_NO_CANCEL_OPTION);
 			if (jo == JOptionPane.YES_OPTION) {
-				addtext();
+				try {
+					addtext();
+				} catch (SQLException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 				wordss.sort(null);
 				dehigh();
 
@@ -183,6 +194,22 @@ public class HighLite implements KeyListener, MouseListener {
 	public void mouseReleased(MouseEvent e) {
 		// TODO Auto-generated method stub
 
+	}
+
+	public Highlighter getHilite() {
+		return hilite;
+	}
+
+	public void setHilite(Highlighter hilite) {
+		this.hilite = hilite;
+	}
+
+	public Document getDoc() {
+		return doc;
+	}
+
+	public void setDoc(Document doc) {
+		this.doc = doc;
 	}
 }
 
