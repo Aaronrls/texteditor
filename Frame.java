@@ -1,34 +1,73 @@
 package texteditor;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
+import javax.swing.undo.UndoManager;
 
 @SuppressWarnings("serial")
-public class Frame extends JFrame {
+public class Frame extends JFrame implements WindowListener {
 
+	@SuppressWarnings("rawtypes")
+	private JComboBox fonts;
+	private String[] names;
+	@SuppressWarnings("unused")
+	private String current;
+
+	private WordList wl;
+	private Connect con;
 	private JMenu editMenu, fileMenu;
 	private JScrollPane jScrollPane;
 	private JPopupMenu.Separator jSeparator1;
 	private JMenuBar menuBar;
-	private JMenuItem newButton, openButton, quitButton, redoButton, saveButton, undoButton,wordCountButton;
+	@SuppressWarnings("unused")
+	private JMenuItem newButton, openButton, quitButton, redoButton, saveButton, undoButton, wordCountButton;
 	private JTextField status;
 	static JTextArea textArea;
+	private UndoManager undoManager;
+	private UndoAction undoAction;
+	private RedoAction redoAction;
 
-	public Frame() {
+	public Frame() throws FileNotFoundException {
 		initComponents();
 	}
 
-	private void initComponents() {
-
-		jScrollPane = new JScrollPane();
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private void initComponents() throws FileNotFoundException {
+		undoManager = new UndoManager();
+		undoAction = new UndoAction();
+		redoAction = new RedoAction();
 		textArea = new JTextArea();
+
+		UndoManager editManager = new UndoManager();
+		textArea.getDocument().addUndoableEditListener(new UndoableEditListener() {
+			public void undoableEditHappened(UndoableEditEvent e) {
+				editManager.addEdit(e.getEdit());
+			}
+		});
+
+		con = new Connect();
+		wl = new WordList();
+		jScrollPane = new JScrollPane();
+
+		textArea.getDocument().addUndoableEditListener(new UndoListener());
+
 		status = new JTextField();
 		menuBar = new JMenuBar();
 		fileMenu = new JMenu();
@@ -41,13 +80,15 @@ public class Frame extends JFrame {
 		undoButton = new JMenuItem();
 		redoButton = new JMenuItem();
 		wordCountButton = new JMenuItem();
-		
-		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+
+		setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+		addWindowListener(this);
 
 		textArea.setColumns(20);
 		textArea.setLineWrap(true);
 		textArea.setRows(5);
 		textArea.setWrapStyleWord(true);
+
 		jScrollPane.setViewportView(textArea);
 
 		status.setEditable(false);
@@ -88,30 +129,40 @@ public class Frame extends JFrame {
 				quitButtonActionPerformed(evt);
 			}
 		});
+
 		wordCountButton.setText("Word Count");
 		wordCountButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent evt) {
 				wordCountButtonActionPerformed(evt);
 			}
-});
+		});
+
+		names = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
+		fonts = new JComboBox(names);
+		fonts.setBackground(Color.WHITE);
+
+		fonts.addItemListener(new ItemListener() {
+
+			public void itemStateChanged(ItemEvent e) {
+				if (e.getStateChange() == ItemEvent.SELECTED) {
+					textArea.setFont(new Font((String) fonts.getSelectedItem(), Font.ITALIC, 16));
+				}
+			}
+		});
 		fileMenu.add(quitButton);
 
 		menuBar.add(fileMenu);
-
+		menuBar.add(fonts);
 		editMenu.setText("Edit");
 
-		undoButton.setText("Undo");
-		undoButton.setToolTipText("");
-		editMenu.add(undoButton);
-
-		redoButton.setText("Redo");
-		editMenu.add(redoButton);
-
-		
 		menuBar.add(wordCountButton);
-		
-		
+
 		menuBar.add(editMenu);
+		editMenu.setText("Edit");
+		editMenu.add(undoAction);
+		editMenu.add(redoAction);
+		wordCountButton.setText("Word Count");
+		menuBar.add(wordCountButton);
 
 		setJMenuBar(menuBar);
 
@@ -128,14 +179,14 @@ public class Frame extends JFrame {
 				.addComponent(status, GroupLayout.PREFERRED_SIZE, 20, GroupLayout.PREFERRED_SIZE).addContainerGap()));
 
 		pack();
-	}// </editor-fold>//GEN-END:initComponents
+	}
 
-	private void quitButtonActionPerformed(ActionEvent evt) {// GEN-FIRST:event_quitButtonActionPerformed
+	private void quitButtonActionPerformed(ActionEvent evt) {
 		// exit program
 		System.exit(0);
-	}// GEN-LAST:event_quitButtonActionPerformed
+	}
 
-	private void openButtonActionPerformed(ActionEvent evt) {// GEN-FIRST:event_openButtonActionPerformed
+	private void openButtonActionPerformed(ActionEvent evt) {
 		JFileChooser chooser = new JFileChooser();
 		int chooserValue = chooser.showOpenDialog(this);
 		if (chooserValue == JFileChooser.APPROVE_OPTION) {
@@ -154,15 +205,15 @@ public class Frame extends JFrame {
 
 			}
 		}
-	}// GEN-LAST:event_openButtonActionPerformed
+	}
 
-	private void newButtonActionPerformed(ActionEvent evt) {// GEN-FIRST:event_newButtonActionPerformed
+	private void newButtonActionPerformed(ActionEvent evt) {
 		// clear text area
 		textArea.setText("");
 		status.setText("New File");
-	}// GEN-LAST:event_newButtonActionPerformed
+	}
 
-	private void saveButtonActionPerformed(ActionEvent evt) {// GEN-FIRST:event_saveButtonActionPerformed
+	private void saveButtonActionPerformed(ActionEvent evt) {
 		// open file chooser dialog
 		JFileChooser chooser = new JFileChooser();
 		int chooserValue = chooser.showSaveDialog(this);
@@ -178,81 +229,174 @@ public class Frame extends JFrame {
 			}
 		}
 	}
+
 	private void wordCountButtonActionPerformed(ActionEvent evt) {
 		String doc = textArea.getText();
 		int words = countWords(doc);
-		status.setText("Words: " + words );
-		
+		status.setText("Words: " + words);
+
 	}
+
 	private static int countWords(String doc) {
-		int index =0;
+		int index = 0;
 		boolean beginning = true;
-		if(doc.equals("")) {
+		if (doc.equals("")) {
 			return 0;
-		}else {
-			while(true) {
+		} else {
+			while (true) {
 				try {
-					if(doc.charAt(index)!=' ') {
+					if (doc.charAt(index) != ' ') {
 						beginning = false;
 						index++;
-					}
-					else if(!beginning)
-							return 1+countWords(doc.substring(++index));
+					} else if (!beginning)
+						return 1 + countWords(doc.substring(++index));
 					else {
 						return countWords(doc.substring(++index));
 					}
-				}catch(StringIndexOutOfBoundsException e) {
-					if(!beginning) {
+				} catch (StringIndexOutOfBoundsException e) {
+					if (!beginning) {
 						return 1;
-					}else {
+					} else {
 						return 0;
 					}
 				}
 			}
 		}
-		
-}
-	
-	// GEN-LAST:event_saveButtonActionPerformed
 
-	/**
-	 * @param args
-	 *            the command line arguments
-	 */
-	public static void main(String args[]) {
-		/* Set the Nimbus look and feel */
-		// <editor-fold defaultstate="collapsed" desc=" Look and feel setting
-		// code (optional) ">
-		/*
-		 * If Nimbus (introduced in Java SE 6) is not available, stay with the
-		 * default look and feel. For details see
-		 * http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.
-		 * html
-		 */
-		try {
-			for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-				if ("Nimbus".equals(info.getName())) {
-					UIManager.setLookAndFeel(info.getClassName());
-					break;
-				}
-			}
-		} catch (ClassNotFoundException ex) {
-			Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
-		} catch (InstantiationException ex) {
-			Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
-		} catch (IllegalAccessException ex) {
-			Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
-		} catch (UnsupportedLookAndFeelException ex) {
-			Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+	}
+
+	class UndoListener implements UndoableEditListener {
+		public void undoableEditHappened(UndoableEditEvent e) {
+			undoManager.addEdit(e.getEdit());
+			undoAction.update();
+			redoAction.update();
 		}
-		// </editor-fold>
+	}
 
-		/* Create and display the form */
+	class UndoAction extends AbstractAction {
+		public UndoAction() {
+			this.putValue(Action.NAME, undoManager.getUndoPresentationName());
+			this.setEnabled(false);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			if (this.isEnabled()) {
+				undoManager.undo();
+				undoAction.update();
+				redoAction.update();
+			}
+		}
+
+		public void update() {
+			this.putValue(Action.NAME, undoManager.getUndoPresentationName());
+			this.setEnabled(undoManager.canUndo());
+		}
+	}
+
+	class RedoAction extends AbstractAction {
+		public RedoAction() {
+			this.putValue(Action.NAME, undoManager.getRedoPresentationName());
+			this.setEnabled(false);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			if (this.isEnabled()) {
+				undoManager.redo();
+				undoAction.update();
+				redoAction.update();
+			}
+		}
+
+		public void update() {
+			this.putValue(Action.NAME, undoManager.getRedoPresentationName());
+			this.setEnabled(undoManager.canRedo());
+		}
+	}
+
+	public static void main(String args[]) {
+
+		// try {
+		// for (UIManager.LookAndFeelInfo info :
+		// UIManager.getInstalledLookAndFeels()) {
+		// if ("Nimbus".equals(info.getName())) {
+		// UIManager.setLookAndFeel(info.getClassName());
+		// break;
+		// }
+		// }
+		// } catch (ClassNotFoundException ex) {
+		// Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+		// } catch (InstantiationException ex) {
+		// Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+		// } catch (IllegalAccessException ex) {
+		// Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+		// } catch (UnsupportedLookAndFeelException ex) {
+		// Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+		// }
+		//
+
 		java.awt.EventQueue.invokeLater(new Runnable() {
 			public void run() {
-				new Frame().setVisible(true);
+				try {
+					new Frame().setVisible(true);
+				} catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		});
+	}
+
+	@Override
+	public void windowActivated(WindowEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void windowClosed(WindowEvent e) {
+
+		con.start();
+		try {
+			wl.insertToDataBase(con.setCon());
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		con.close();
+
+		System.out.println("closed program");
+		System.exit(0);
+
+	}
+
+	@Override
+	public void windowClosing(WindowEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void windowDeactivated(WindowEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void windowDeiconified(WindowEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void windowIconified(WindowEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void windowOpened(WindowEvent e) {
+		// TODO Auto-generated method stub
+
 	}
 
 }
